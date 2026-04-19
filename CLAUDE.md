@@ -8,6 +8,8 @@ This is a **reverse-engineered / decompiled** version of Anthropic's official Cl
 
 ## Commands
 
+Requires [Bun](https://bun.sh/) >= 1.2.0 (README recommends >= 1.3.11).
+
 ```bash
 # Install dependencies
 bun install
@@ -19,11 +21,31 @@ bun run dev
 # Pipe mode
 echo "say hello" | bun run src/entrypoints/cli.tsx -p
 
-# Build (outputs dist/cli.js, ~25MB)
+# Build (outputs dist/cli.js + ~450 chunk files, ~25MB total)
 bun run build
 ```
 
-No test runner is configured. No linter is configured.
+Build pipeline (`build.ts`): Bun bundler with `splitting: true`, followed by a post-process step that patches `import.meta.require` to a Node.js-compatible version so the output runs on both Bun and Node.
+
+### Code quality
+
+```bash
+# Lint (Biome — many rules are disabled for decompiled code)
+bun run lint
+bun run lint:fix
+
+# Format (Biome — note: .tsx files use semicolons: always, other files use semicolons: asNeeded)
+bun run format
+
+# Find unused exports / dependencies (knip)
+bun run check:unused
+
+# Run tests (Bun test runner — only a handful of tests exist currently)
+bun test
+
+# Health check
+bun run health
+```
 
 ## Architecture
 
@@ -113,3 +135,4 @@ All `feature('FLAG_NAME')` calls come from `bun:bundle` (a build-time API). In t
 - **React Compiler output** — Components have decompiled memoization boilerplate (`const $ = _c(N)`). This is normal.
 - **`bun:bundle` import** — In `src/main.tsx` and other files, `import { feature } from 'bun:bundle'` works at build time. At dev-time, the polyfill in `cli.tsx` provides it.
 - **`src/` path alias** — tsconfig maps `src/*` to `./src/*`. Imports like `import { ... } from 'src/utils/...'` are valid.
+- **Biome formatting quirks** — `biome.json` disables many lint rules to accommodate decompiled code. Formatter uses `semicolons: "asNeeded"` for most files, but `semicolons: "always"` for `**/*.tsx`. Scripts and `packages/` have formatting disabled entirely. Run `bun run format` rather than relying on editor defaults.
